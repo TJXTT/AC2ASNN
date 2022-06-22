@@ -36,7 +36,7 @@ python run.py --arch=ResNet --time-step=5 --batch-size=512 --spike-unit=STSU --d
 @article{snn2ann,
   title={SNN2ANN: A Fast and Memory-Efficient Training Framework for Spiking Neural Networks},
   author={Jianxiong Tang and Jianhuang Lai and Xiaohua Xie and Lingxiao Yang and Wei-Shi Zheng},
-  journal={arXiv preprint},
+  journal={arXiv preprint arXiv:2206.09449},
   year={2022}
 }
 ```
