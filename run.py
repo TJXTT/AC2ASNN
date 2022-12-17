@@ -54,7 +54,7 @@ parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=2, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 
 best_prec1 = 0
@@ -253,14 +253,15 @@ def main():
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
-        save_path = os.path.join(ckpt_path, dataset+'_'+arch.upper()+'_'+'T='+str(time_steps)+'_'+'epoch='+str(epoch)+'.pth.tar')
+
+        save_file = dataset+'_'+arch.upper()+'_'+'T='+str(time_steps)+'_'+'epoch='+str(epoch)+'.pth.tar'
         save_checkpoint({
             'epoch': epoch + 1,
             'arch': args.arch,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
             'optimizer': optimizer.state_dict(),
-        }, is_best)
+        }, is_best, ckpt_path, save_file)
 
     for k in range(0, args.epochs - args.start_epoch):
         print('Epoch: [{0}/{1}]\t'
@@ -477,10 +478,12 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
-def save_checkpoint(state, is_best, filename='model.pth.tar'):
-    torch.save(state, filename)
+def save_checkpoint(state, is_best, ckpt_path, filename='model.pth.tar'):
+    save_path1 = os.path.join(ckpt_path, filename)
+    torch.save(state, save_path1)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        save_path2 = os.path.join(ckpt_path, 'model_best.pth.tar')
+        shutil.copyfile(save_path1, save_path2)
 
 
 if __name__ == '__main__':
