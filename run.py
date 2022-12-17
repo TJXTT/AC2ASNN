@@ -24,7 +24,8 @@ model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
                      and callable(models.__dict__[name]))
 parser = argparse.ArgumentParser(description='SNN2ANN Training')
-parser.add_argument('--dataset', default='../datasets/data_CIFAR100', type=str, help='data path')
+parser.add_argument('--dataset', default='CIFAR100', type=str, help='dataset')
+parser.add_argument('--data-path', default='../datasets/data_CIFAR100', type=str, help='data path')
 parser.add_argument('--class-nums', default=100, type=int, help='class number')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet')
 parser.add_argument('--time-steps', default=5, type=int)
@@ -40,26 +41,23 @@ parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
 parser.add_argument('--kaiming-norm', default=False, type=bool, help='use kaiming normalization')
 parser.add_argument('--print-freq', '-p', default=100, type=int,
                     metavar='N', help='print frequency (default: 10)')
+parser.add_argument('--checkpoint-path', default='./checkpoints', type=str, help='data path')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-load', default='', type=str, metavar='PATH',
                     help='path to training mask (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true',
+parser.add_argument('--pretrained', default='', metavar='PATH',
                     help='use pre-trained model')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=2, type=int, metavar='N',
                     help='number of total epochs to run')
 
 best_prec1 = 0
-change = 20
-change2 = 40
-change3 = 60
-change_arr = [20, 40, 60, 80]
 step_change_arr = [100, 150, 175]
 
 tp1 = [];
@@ -86,27 +84,47 @@ def main():
     time_steps = args.time_steps
     batch_size = args.batch_size
     arch = args.arch
+    ckpt_path = args.checkpoint_path
     spike_unit = args.spike_unit
     kaiming_norm = args.kaiming_norm
     cls_nums = args.class_nums
     learning_rate = args.lr
     weight_decay = args.weight_decay
-    data_path = args.dataset
-    writer = SummaryWriter('./summaries/'+arch+'_'+spike_unit+'_T='+str(time_steps))
+    data_path = args.data_path
+    dataset = args.dataset.upper()
+    writer = SummaryWriter('./summaries/'+arch+'_'+dataset+'_'+spike_unit+'_T='+str(time_steps))
+
+    if not os.path.exists(ckpt_path):
+        os.mkdir(ckpt_path)
 
     assert spike_unit in ['ReSU', 'STSU']
 
+    # Model
     if arch.upper() == 'VGG':
-        model = VGG(H=32, W=32, C=3, num_classes=cls_nums, 
+        if dataset == 'TINY-IMAGENET':
+            H = W = 64
+            downsample_lst = [False, True, True, True, True]
+        else:
+            H = W = 32
+            downsample_lst = [False, False, True, True, True]
+        channel_lst = [64, 128, 256, 512, 512]
+        model = VGG(H=H, W=W, C=3, num_classes=cls_nums, 
                      blocks=[VGGBlock_1,VGGBlock_1,VGGBlock_2,
                      VGGBlock_2,VGGBlock_2], 
-                     channels=[64,128,256,512,512], 
-                     downsample=[False, False, True, True, True], 
+                     channels=channel_lst, 
+                     downsample=downsample_lst, 
                      T=time_steps, mapping_unit=spike_unit, 
                      kaiming_norm=kaiming_norm)
     else:
-        model =  ResNet(H=32, W=32, C=3, num_classes=cls_nums, 
-                     strides=[1,1,1,2,2], channels=[64,64,128,256,512], 
+        if dataset == 'TINY-IMAGENET':
+            H = W = 64
+            stride_lst = [1, 1, 2, 2, 2]
+        else:
+            H = W = 32
+            stride_lst = [1, 1, 1, 2, 2]
+        channel_lst = [64, 64, 128, 256, 512]
+        model =  ResNet(H=H, W=W, C=3, num_classes=cls_nums, 
+                     strides=stride_lst, channels=channel_lst, 
                      T=time_steps, mapping_unit=spike_unit, 
                      kaiming_norm=kaiming_norm)
 
@@ -120,51 +138,96 @@ def main():
         model.cuda()
     else:
         model = torch.nn.DataParallel(model).cuda()
+    
+    # Data loading code
+    normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.557, 0.549, 0.5534])
+    if dataset == 'CIFAR100':
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        train_data = torchvision.datasets.CIFAR100(data_path, train=True, download=True, transform=transform_train)
+
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+        val_data = torchvision.datasets.CIFAR100(data_path, train=False, download=True, transform=transform_test)
+
+    elif dataset == 'CIFAR10':
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        train_data = torchvision.datasets.CIFAR10(data_path, train=True, download=True, transform=transform_train)
+
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+        val_data = torchvision.datasets.CIFAR10(data_path, train=False, download=True, transform=transform_test)
+
+    elif dataset == 'TINY-IMAGENET':
+        transform_train = transforms.Compose([
+            #transforms.RandomResizedCrop(224),
+            transforms.RandomCrop(64, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        train_path = os.path.join(data_path,'train')
+        train_data =torchvision.datasets.ImageFolder(root=train_path, transform=transform_train)
+
+        
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+        val_path = os.path.join(data_path, 'val')
+        val_data = torchvision.datasets.ImageFolder(root=val_path, transform=transform_test)
+
+    else:
+        raise Exception("Choose a dataset from CIFAR10, CIFAR100, or Tiny-ImageNet.")
+
+    train_loader = torch.utils.data.DataLoader(train_data, 
+                                                batch_size=args.batch_size, 
+                                                shuffle=True, 
+                                                num_workers=args.workers, 
+                                                pin_memory=True)
+    val_loader = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=False,
+                                             num_workers=args.workers,
+                                             pin_memory=False)
 
     criterion_en = torch.nn.CrossEntropyLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    if os.path.exists(args.pretrained):
+        print("=> loading pretrained model '{}'".format(args.pretrained))
+        checkpoint = torch.load(args.pretrained)
+        model.load_state_dict(checkpoint, strict=False)
+    else:
+        print("=> no pretrained model found at '{}'".format(args.pretrained))
 
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
-            #args.start_epoch = checkpoint['epoch']
-            #best_prec1 = checkpoint['best_prec1']
+            args.start_epoch = checkpoint['epoch']
+            best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'], strict=False)
-            #optimizer.load_state_dict(checkpoint['optimizer'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.resume, checkpoint['epoch']))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
     cudnn.benchmark = True
-
-    # Data loading code
-    normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.557, 0.549, 0.5534])
-    transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    train_data = torchvision.datasets.CIFAR100(data_path, train=True, download=True, transform=transform_train)
-    train_loader = torch.utils.data.DataLoader(train_data,
-                                               batch_size=args.batch_size, shuffle=True,
-                                               num_workers=args.workers,
-                                               pin_memory=True)
-
-    transform_test = transforms.Compose([
-        transforms.ToTensor(),
-        normalize,
-    ])
-    val_data = torchvision.datasets.CIFAR100(data_path, train=False, download=True, transform=transform_test)
-    val_loader = torch.utils.data.DataLoader(val_data,  # val_data for testing
-                                             batch_size=int(64), shuffle=False,
-                                             num_workers=args.workers,
-                                             pin_memory=False)
-
 
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
@@ -190,6 +253,7 @@ def main():
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
+        save_path = os.path.join(ckpt_path, dataset+'_'+arch.upper()+'_'+'T='+str(time_steps)+'_'+'epoch='+str(epoch)+'.pth.tar')
         save_checkpoint({
             'epoch': epoch + 1,
             'arch': args.arch,
