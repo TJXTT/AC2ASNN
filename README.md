@@ -1,6 +1,6 @@
-# SNN2ANN: A Fast and Memory-Efficient Training Framework for Spiking Neural Networks
+# $\text{AC}^2\text{AS}$: Activation Consistency Coupled ANN-SNN Framework for Fast and Memory-Efficient SNN Training
 
-The demo code of the paper: SNN2ANN: A Fast and Memory-Efficient Training Framework for Spiking Neural Networks
+The demo code of the paper: $\text{AC}^2\text{AS}$: Activation Consistency Coupled ANN-SNN Framework for Fast and Memory-Efficient SNN Training
 
 ## SNN2ANN training with ReSU:
 
@@ -37,10 +37,10 @@ https://drive.google.com/drive/folders/1y6ZUT3WToowuCo72CVspurQrdSG4U8zi?usp=sha
 ## Citation
 
 ```
-@article{snn2ann,
-  title={SNN2ANN: A Fast and Memory-Efficient Training Framework for Spiking Neural Networks},
+@article{ac2asnn,
+  title={AC2AS: Activation Consistency Coupled ANN-SNN Framework for Fast and Memory-Efficient SNN Training},
   author={Jianxiong Tang and Jianhuang Lai and Xiaohua Xie and Lingxiao Yang and Wei-Shi Zheng},
-  journal={arXiv preprint arXiv:2206.09449},
-  year={2022}
+  journal={Pattern Recognition},
+  year={2023}
 }
 ```
