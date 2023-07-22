@@ -2,7 +2,7 @@
 
 The demo code of the paper: $\text{AC}^2\text{AS}$: Activation Consistency Coupled ANN-SNN Framework for Fast and Memory-Efficient SNN Training
 
-## SNN2ANN training with ReSU:
+## Training with ReSU:
 
 ### VGG-13
 
@@ -16,7 +16,7 @@ python run.py --arch=VGG --time-step=4 --batch-size=512 --spike-unit=ReSU --data
 python run.py --arch=ResNet --time-step=5 --batch-size=512 --spike-unit=ReSU --dataset=CIFAR100 --class-nums=100 --kaiming-norm=True --data-path=dataset_path --pretrained=pretrained_model_path
 ```
 
-## SNN2ANN training with STSU:
+## Training with STSU:
 
 ### VGG-13
 
